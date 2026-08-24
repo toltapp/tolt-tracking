@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>@tolt/tracking e2e</title></head>
+<body>
+<h1>@tolt/tracking e2e</h1>
+<pre id="log"></pre>
+<script type="module">
+  import { init, getData, isReferred, signup } from "../dist/index.js";
+
+  const results = [];
+  window.__results = results;
+  window.__done = false;
+  const el = document.getElementById("log");
+  function assert(name, cond, detail) {
+    const line = (cond ? "PASS " : "FAIL ") + name + (detail ? "  (" + detail + ")" : "");
+    results.push({ name, pass: !!cond, detail });
+    el.textContent += line + "\n";
+  }
+
+  (async () => {
+    try {
+      // Load the mock script through the package's own init().
+      await init({ publicKey: "PK_TEST_123", scriptUrl: "./mock-tolt.js" });
+
+      const script = document.querySelector('script[data-tolt]');
+      assert("init injects a script", !!script);
+      assert("script points at the given url", script && /mock-tolt\.js$/.test(script.getAttribute("src")), script && script.getAttribute("src"));
+      assert("script carries the public key", script && script.getAttribute("data-tolt") === "PK_TEST_123");
+
+      // This page is loaded with ?ref=nick, so the visit is referred.
+      assert("isReferred() is true", isReferred() === true);
+      const before = getData();
+      assert("getData() returns the click", before && before.click_id === "clk_mock_123", before && before.click_id);
+      assert("customer_id is null before signup", before && before.customer_id === null);
+
+      const res = await signup("sam@acme.com");
+      assert("signup() resolves with a customer", res && res.customer_id === "cus_mock_abc");
+      assert("signup() echoes the identifier", res && res.customer_identifier === "sam@acme.com");
+      assert("getData() reflects customer_id after signup", getData() && getData().customer_id === "cus_mock_abc");
+
+      // init() is idempotent: calling again must not add a second script.
+      await init({ publicKey: "PK_TEST_123", scriptUrl: "./mock-tolt.js" });
+      assert("init() is idempotent", document.querySelectorAll('script[data-tolt]').length === 1);
+
+      const passed = results.filter((r) => r.pass).length;
+      el.textContent += "\n" + passed + "/" + results.length + " passed\n";
+      window.__summary = { passed, total: results.length };
+    } catch (e) {
+      el.textContent += "THREW: " + e.message + "\n";
+      window.__summary = { error: e.message };
+    } finally {
+      window.__done = true;
+    }
+  })();
+</script>
+</body>
+</html>
