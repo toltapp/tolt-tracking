@@ -71,4 +71,4 @@ Payments are recorded server-side. See the [server-side tracking guide](https://
 
 ## License
 
-MIT
+Apache-2.0
