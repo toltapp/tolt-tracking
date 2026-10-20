@@ -28,16 +28,25 @@ export default function App() {
 Then track a signup wherever a referred visitor becomes a user:
 
 ```tsx
+import { useEffect, useState } from "react";
 import { useTolt } from "@tolt/tracking/react";
 
 function SignUpForm() {
-  const { data, signup } = useTolt();
+  const { ready, signup } = useTolt();
+  const [newUserId, setNewUserId] = useState(null);
 
-  async function onSubmit(user) {
-    // only referred visitors have data; don't sign the same one up twice
-    if (data && !data.customer_id) {
-      await signup(user.id); // use the SAME id you'll send with their payments
-    }
+  // ready = tolt.js loaded and this visit's click recorded
+  useEffect(() => {
+    if (!ready || !newUserId) return;
+    setNewUserId(null);
+    signup(newUserId).then((result) => {
+      // no customer_id when the visitor wasn't referred
+      if (result?.customer_id) saveToltCustomerId(result.customer_id); // send this cus_ id with their payments
+    });
+  }, [ready, newUserId, signup]);
+
+  function onSignedUp(user) {
+    setNewUserId(user.id);
   }
   // ...
 }
@@ -48,11 +57,12 @@ function SignUpForm() {
 ```ts
 import { init, getData, signup } from "@tolt/tracking";
 
-await init({ publicKey: "YOUR_PUBLIC_ORG_KEY" });
+await init({ publicKey: "YOUR_PUBLIC_ORG_KEY" }); // resolves once the click is recorded
 
 const data = getData(); // ToltData | null
 if (data && !data.customer_id) {
-  await signup("user@example.com");
+  const result = await signup("user@example.com");
+  if (result?.customer_id) saveToltCustomerId(result.customer_id); // send this cus_ id with their payments
 }
 ```
 
@@ -60,12 +70,13 @@ if (data && !data.customer_id) {
 
 | Export | Description |
 | --- | --- |
-| `init(options)` | Inject `tolt.js`. Idempotent, no-op on the server. |
+| `init(options)` | Inject `tolt.js`. Resolves once this visit's click is recorded. Idempotent, no-op on the server. |
+| `ready()` | Resolves with the referral (`ToltData` or `null`) once tolt.js has recorded the click. |
 | `getData()` | The current referred visit (`ToltData`) or `null`. |
 | `isReferred()` | `true` if this visit came from a partner link. |
 | `signup(identifier)` | Convert the referred visitor into a customer. |
 | `ToltTracking` (`/react`) | Component that loads the script. Renders nothing. |
-| `useTolt()` (`/react`) | `{ data, ready, signup }`. |
+| `useTolt()` (`/react`) | `{ data, ready, signup }`. `ready` turns `true` once the click is recorded. |
 
 Payments are recorded server-side. See the [server-side tracking guide](https://docs.tolt.com/tracking/server-side).
 
