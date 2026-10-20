@@ -36,6 +36,7 @@ declare global {
   interface Window {
     tolt_data?: ToltData | null;
     tolt?: {
+      ready: () => Promise<ToltData | null>;
       signup: (identifier: string) => Promise<ToltSignupResult>;
     };
   }
@@ -52,7 +53,8 @@ let loadPromise: Promise<void> | null = null;
 
 /**
  * Inject the tolt.js script. Safe to call more than once (and a no-op on the
- * server); the script is only added the first time. Resolves once it has loaded.
+ * server); the script is only added the first time. Resolves once the script
+ * has loaded and recorded this visit's click, so {@link getData} is accurate.
  */
 export function init(options: InitOptions): Promise<void> {
   if (typeof document === "undefined") return Promise.resolve();
@@ -61,7 +63,7 @@ export function init(options: InitOptions): Promise<void> {
   const src = options.scriptUrl ?? DEFAULT_SCRIPT_URL;
 
   if (window.tolt || document.querySelector(`script[data-tolt-loaded="true"]`)) {
-    loadPromise = Promise.resolve();
+    loadPromise = ready().then(() => undefined);
     return loadPromise;
   }
 
@@ -71,7 +73,9 @@ export function init(options: InitOptions): Promise<void> {
     script.async = true;
     script.setAttribute("data-tolt", options.publicKey);
     script.setAttribute("data-tolt-loaded", "true");
-    script.addEventListener("load", () => resolve());
+    script.addEventListener("load", () => {
+      ready().then(() => resolve(), () => resolve());
+    });
     script.addEventListener("error", () => reject(new Error("Failed to load tolt.js")));
     document.head.appendChild(script);
   });
@@ -79,7 +83,23 @@ export function init(options: InitOptions): Promise<void> {
   return loadPromise;
 }
 
-/** The current referred visit, or `null` if this visit didn't come from a partner link. */
+/**
+ * Resolves once tolt.js has loaded and recorded this visit's click, with the
+ * referral data (or `null` if this visit wasn't referred). `null` on the server.
+ */
+export function ready(): Promise<ToltData | null> {
+  if (typeof window === "undefined") return Promise.resolve(null);
+  if (window.tolt) return window.tolt.ready();
+  return new Promise((resolve) => {
+    window.addEventListener("toltScriptLoaded", () => resolve(window.tolt ? window.tolt.ready() : null), { once: true });
+  });
+}
+
+/**
+ * The current referred visit, or `null` if this visit didn't come from a
+ * partner link. Await {@link init} or {@link ready} first: on the landing page
+ * the click is recorded asynchronously.
+ */
 export function getData(): ToltData | null {
   if (typeof window === "undefined") return null;
   return window.tolt_data ?? null;
@@ -92,8 +112,10 @@ export function isReferred(): boolean {
 
 /**
  * Convert the referred visitor into a customer. Pass an identifier that is
- * stable for this user (their id or email), and use the same value when you
- * report their payments. Throws if tolt.js has not loaded yet.
+ * stable for this user (their id or email). Waits for the click to be recorded.
+ * Check `result?.customer_id`: it is missing when the visitor wasn't referred,
+ * and it's the Tolt id (`cus_...`) to use when you report their payments.
+ * Rejects if tolt.js has not loaded yet.
  */
 export function signup(identifier: string): Promise<ToltSignupResult> {
   if (typeof window === "undefined" || !window.tolt) {

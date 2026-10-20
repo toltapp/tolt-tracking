@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import {
   getData,
   init,
+  ready as whenReady,
   signup as vanillaSignup,
   type InitOptions,
   type ToltData,
@@ -30,7 +31,7 @@ export function ToltTracking({ publicKey, scriptUrl }: ToltTrackingProps): null 
 export type UseTolt = {
   /** The current referred visit, or `null` if not referred. */
   data: ToltData | null;
-  /** Whether tolt.js has finished loading. */
+  /** Whether tolt.js has loaded and recorded this visit's click. Until then `data` is `null`. */
   ready: boolean;
   /** Convert the referred visitor into a customer. */
   signup: (identifier: string) => Promise<ToltSignupResult>;
@@ -40,9 +41,10 @@ export type UseTolt = {
  * Access the live tracking data and the signup call from a component.
  *
  * ```tsx
- * const { data, signup } = useTolt();
- * // on your signup handler:
- * if (data && !data.customer_id) await signup(user.id);
+ * const { ready, signup } = useTolt();
+ * // after your own signup succeeds, once `ready` is true:
+ * const result = await signup(user.id);
+ * if (result?.customer_id) saveToltCustomerId(result.customer_id);
  * ```
  */
 export function useTolt(): UseTolt {
@@ -52,11 +54,16 @@ export function useTolt(): UseTolt {
   useEffect(() => {
     let cancelled = false;
 
+    // window.tolt exists as soon as the script runs, but the click is recorded
+    // asynchronously; wait for it so `data` isn't null on the landing page.
     const poll = () => {
       if (cancelled) return;
       if (typeof window !== "undefined" && window.tolt) {
-        setReady(true);
-        setData(getData());
+        whenReady().catch(() => null).then((tracking) => {
+          if (cancelled) return;
+          setData(tracking ?? getData());
+          setReady(true);
+        });
         return;
       }
       window.setTimeout(poll, 300);
