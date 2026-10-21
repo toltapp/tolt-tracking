@@ -6,7 +6,7 @@
  * you and gives you typed access to the data and the signup call.
  */
 
-const DEFAULT_SCRIPT_URL = "https://cdn.tolt.io/tolt.js";
+const DEFAULT_SCRIPT_URL = "https://cdn.tolt.io/v2/tolt.js";
 
 /** The current referred visit, exposed by tolt.js on `window.tolt_data`. */
 export type ToltData = {
@@ -45,7 +45,7 @@ declare global {
 export type InitOptions = {
   /** Your public organization key (Settings -> Integrations). Safe for the browser. */
   publicKey: string;
-  /** Override the script URL. Defaults to `https://cdn.tolt.io/tolt.js`. */
+  /** Override the script URL. Defaults to `https://cdn.tolt.io/v2/tolt.js`. */
   scriptUrl?: string;
 };
 
