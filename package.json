@@ -1,6 +1,6 @@
 {
   "name": "@tolt/tracking",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Client-side tracking for Tolt affiliate programs: a typed wrapper around tolt.js, with a React component and hook.",
   "license": "Apache-2.0",
   "type": "module",
