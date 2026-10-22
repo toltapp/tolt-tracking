@@ -1,3 +1,9 @@
+## [0.1.2](https://github.com/toltapp/tolt-tracking/compare/v0.1.1...v0.1.2) (2026-10-22)
+
+### Bug Fixes
+
+* load tolt.js from files.tlt-cdn.com/v2/tlt.js by default ([e113117](https://github.com/toltapp/tolt-tracking/commit/e1131176bfe4910556fa8d9435cc8d1a21ed4fc5))
+
 ## [0.1.1](https://github.com/toltapp/tolt-tracking/compare/v0.1.0...v0.1.1) (2026-10-21)
 
 ### Bug Fixes
